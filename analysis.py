@@ -8,7 +8,7 @@ import re
 import datetime
 import seaborn as sns
 
-
+import nltk
 from nltk.sentiment.vader import SentimentIntensityAnalyzer
 
 
@@ -176,7 +176,7 @@ def correlation(resp_list):
     print("\tAccepted Rest Length: " + str(resp_accepted_length/len(resp_list)))
 
 
-def hr_trends(resp_list):
+def hr_trends(resp_list, title):
     hr_ids = []
     for resp in resp_list:
         temp_id = resp['Subject ID'].lower()
@@ -199,21 +199,22 @@ def hr_trends(resp_list):
                         if row[0] != "":
                             t = row[0]
                             h, m, s = re.split(':', t)
-                            ts = datetime.timedelta(hours=int(h), minutes=int(m), seconds=int(s)).total_seconds()
-                            if ts <= 210.0:
+                            ts = datetime.timedelta(hours=int(h), minutes=int(m), seconds=int(s))
+                            if ts <= datetime.timedelta(hours=0, minutes=3, seconds=30):
                                 try:
                                     complete_hr_dict[ts].append(int(row[1]))
                                 except:
                                     complete_hr_dict[ts] = [int(row[1]), ]
-    df = pd.DataFrame.from_dict(complete_hr_dict,orient='index')
-    # df.rolling(10).mean().plot(figsize=(20, 10), linewidth=5, fontsize=20)
-    # df.plot(figsize=(20, 10), linewidth=5, fontsize=20)
+    df = pd.DataFrame(dict([(k,pd.Series(v)) for k,v in complete_hr_dict.items() ]))
 
+    df = df.mask(df.sub(df.mean()).div(df.std()).abs().gt(3))
+    print(df)
+
+    df.mean().plot(label='mean')
+    plt.title(title)
     plt.xlabel('Time', fontsize=15)
     plt.ylabel('HR', fontsize=15)
-    # plt.show()
-    # print()
-    # print(df)
+    plt.show()
 
 def better_analysis(data_lists):
     complete_dict = {
@@ -237,6 +238,8 @@ def better_analysis(data_lists):
         'working' : [], #5
         'other' : [], #6
     }
+
+    complete_df = []
 
     for dir in data_lists:
         for resp in data_lists[dir][0]:
@@ -289,9 +292,10 @@ def better_analysis(data_lists):
         correlation(complete_dict[i])
         better_acceptance(complete_dict[i])
         better_sentiment(complete_dict[i])
-        hr_trends(complete_dict[i])
+        complete_df.append(hr_trends(complete_dict[i], i))
 
 
 if __name__ == '__main__':
+    nltk.download('vader_lexicon')
     data_lists = compile_data()
     better_analysis(data_lists)
