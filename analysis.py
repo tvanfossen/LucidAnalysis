@@ -20,23 +20,24 @@ def compile_data():
         # for file in dataFiles:
         #     print ("\t" + file)
         data_files = os.listdir("LucidData/" + dir)
-        with open("LucidData/" + dir + "/" + "SurveyData.csv", 'r') as input:
-            input_reader = csv.DictReader(input, delimiter=',')
-            row1 = next(input_reader)
+        if 'SurveyData.csv' in data_files:
+            with open("LucidData/" + dir + "/" + "SurveyData.csv", 'r') as input:
+                input_reader = csv.DictReader(input, delimiter=',')
+                row1 = next(input_reader)
 
-            data_list = []
-            dict_template = {}
-            for item in row1:
-                dict_template[item] = ""
+                data_list = []
+                dict_template = {}
+                for item in row1:
+                    dict_template[item] = ""
 
-            for row in input_reader:
-                temp_dict = dict_template.copy()
-                for item in row:
-                    temp_dict[item] = row[item]
-                data_list.append(temp_dict)
+                for row in input_reader:
+                    temp_dict = dict_template.copy()
+                    for item in row:
+                        temp_dict[item] = row[item]
+                    data_list.append(temp_dict)
 
-            # for dict in data_list:
-            #     print(dict)
+                # for dict in data_list:
+                #     print(dict)
 
         comp_data_list[dir].append(data_list)
 
@@ -44,6 +45,7 @@ def compile_data():
 
 
 def better_sentiment(resp_list):
+
     def analyzer(sentences):
         sid = SentimentIntensityAnalyzer()
         scores = {"compound": 0, "neg": 0, "neu": 0, "pos": 0}
@@ -83,6 +85,21 @@ def better_sentiment(resp_list):
     print("\t\tNeutral: " + str(analysis_post['neu'] - analysis_pre['neu']))
     print("\t\tPositive: " + str(analysis_post['pos'] - analysis_pre['pos']))
 
+    analysis_dict = {'sentiment_pre_neg': analysis_pre['neg'],'sentiment_pre_neu': analysis_pre['neu'],
+                     'sentiment_pre_pos': analysis_pre['pos'],'sentiment_pre_compound': analysis_pre['compound'],
+                     'sentiment_post_neg': analysis_post['neg'], 'sentiment_post_neu': analysis_post['neu'],
+                     'sentiment_post_pos': analysis_post['pos'], 'sentiment_post_compound': analysis_post['compound'],
+                     'sentiment_complete_neg': analysis_complete['neg'], 'sentiment_complete_neu': analysis_complete['neu'],
+                     'sentiment_complete_pos': analysis_complete['pos'], 'sentiment_complete_compound': analysis_complete['compound'],
+                     'sentiment_improv_neg': analysis_post['neg'] - analysis_pre['neg'],
+                     'sentiment_improv_neu': analysis_post['neu'] - analysis_pre['neu'],
+                     'sentiment_improv_pos': analysis_post['pos'] - analysis_pre['pos'],
+                     'sentiment_improv_compound': analysis_post['compound'] - analysis_pre['compound'],
+
+                     }
+
+
+    return analysis_dict
 
 def better_acceptance(resp_list):
     resp_pre = 0
@@ -131,16 +148,22 @@ def better_acceptance(resp_list):
 
     print("\tAcceptance Level Improvement: " + str(resp_pre/len(resp_list) - resp_post/len(resp_list)))
 
+    temp_dict = {"acceptance_pre": resp_pre/len(resp_list),
+                 "acceptance_post": resp_post/len(resp_list),
+                 "acceptance_improv": resp_pre/len(resp_list) - resp_post/len(resp_list)}
+    return temp_dict
 
-def correlation(resp_list):
+def correlation(resp_list, df):
     resp_pre_rest = 0
     resp_post_rest = 0
     resp_perceived_length = 0
     resp_rating = 0
     resp_recommendation = 0
     resp_accepted_length = 0
+    caffeine_level = 0
+
     for resp in resp_list:
-        # print(resp)
+        # print(resp['How many servings of caffeine have you had today?'])
         try:
             resp_pre_rest += int(resp['How rested do you feel today?'])
             resp_post_rest += int(resp['How rested do you feel compared to when you arrived?'])
@@ -151,22 +174,61 @@ def correlation(resp_list):
             resp_post_rest += int(resp['How rejuvenated do you feel compared to when you arrived?'])
             resp_perceived_length += int(resp['How long did your rejuvenation feel like?'])
 
+        if resp['How many servings of caffeine have you had today?'] == '4 or more':
+            caffeine_level += 4
+        elif resp['How many servings of caffeine have you had today?'] == "":
+            caffeine_level += 0
+        else:
+            caffeine_level += int(resp['How many servings of caffeine have you had today?'])
+
         resp_rating += int(resp['How would you rate your LUCID experience?'])
         try:
             resp_accepted_length += int(resp['How many minutes would you be willing to rest during a work day?'])
         except:
             resp_accepted_length += int(resp['How many minutes would you be willing to rejuvenate during a work day?'])
 
-        if resp['How likely are you to recommend the LUCID experience to a co-worker?'] == 'Very likely':
+        if (resp['How likely are you to recommend the LUCID experience to a co-worker?'] == 'Very likely' or
+            resp['How likely are you to recommend the LUCID experience to a co-worker?'] == "1"):
             resp_recommendation += 5
-        elif resp['How likely are you to recommend the LUCID experience to a co-worker?'] == 'Likely':
+        elif (resp['How likely are you to recommend the LUCID experience to a co-worker?'] == 'Likely' or
+              resp['How likely are you to recommend the LUCID experience to a co-worker?'] == "2"):
             resp_recommendation += 4
-        elif resp['How likely are you to recommend the LUCID experience to a co-worker?'] == 'Neither likely nor unlikely':
+        elif (resp['How likely are you to recommend the LUCID experience to a co-worker?'] == 'Neither likely nor unlikely' or
+              resp['How likely are you to recommend the LUCID experience to a co-worker?'] == "3"):
             resp_recommendation += 3
-        elif resp['How likely are you to recommend the LUCID experience to a co-worker?'] == 'Unlikely':
+        elif (resp['How likely are you to recommend the LUCID experience to a co-worker?'] == 'Unlikely' or
+              resp['How likely are you to recommend the LUCID experience to a co-worker?'] == "4"):
             resp_recommendation += 2
-        elif resp['How likely are you to recommend the LUCID experience to a co-worker?'] == 'Very unlikely':
+        elif (resp['How likely are you to recommend the LUCID experience to a co-worker?'] == 'Very unlikely' or
+              resp['How likely are you to recommend the LUCID experience to a co-worker?'] == "5"):
             resp_recommendation += 1
+
+
+    average_bpm_60 = 0
+    average_bpm_30 = 0
+    average_bpm_0 = 0
+
+    average_start_60 = 0
+    average_start_30 = 0
+    average_start_0 = 0
+
+    average_end = 0
+
+
+    for j in range(0, len(df[datetime.timedelta(hours=int(0), minutes=int(3), seconds=int(30))])):
+
+        average_start_60 += df[datetime.timedelta(hours=int(0), minutes=int(0), seconds=int(60))][j]
+        average_start_30 += df[datetime.timedelta(hours=int(0), minutes=int(0), seconds=int(30))][j]
+        average_start_0 += df[datetime.timedelta(hours=int(0), minutes=int(0), seconds=int(1))][j]
+
+        average_end += df[datetime.timedelta(hours=int(0), minutes=int(3), seconds=int(30))][j]
+
+        average_bpm_60 += (df[datetime.timedelta(hours=int(0), minutes=int(3), seconds=int(30))][j] -
+                                df[datetime.timedelta(hours=int(0), minutes=int(0), seconds=int(60))][j])
+        average_bpm_30 += (df[datetime.timedelta(hours=int(0), minutes=int(3), seconds=int(30))][j] -
+                               df[datetime.timedelta(hours=int(0), minutes=int(0), seconds=int(30))][j])
+        average_bpm_0 += (df[datetime.timedelta(hours=int(0), minutes=int(3), seconds=int(30))][j] -
+                           df[datetime.timedelta(hours=int(0), minutes=int(0), seconds=int(1))][j])
 
 
     print("\tRest Level Improvement: " + str(resp_post_rest / len(resp_list) - resp_pre_rest / len(resp_list)))
@@ -175,6 +237,26 @@ def correlation(resp_list):
     print("\tLucid Recommendation: " + str(resp_recommendation/len(resp_list)))
     print("\tAccepted Rest Length: " + str(resp_accepted_length/len(resp_list)))
 
+    temp_dict = {"rest_level_pre": resp_pre_rest / len(resp_list), 'rest_level_post': resp_post_rest / len(resp_list),
+                 "rest_level_improv":resp_post_rest / len(resp_list) - resp_pre_rest / len(resp_list),
+                 "perceived_length": resp_perceived_length / len(resp_list),
+                 "lucid_rating": resp_rating/len(resp_list), "lucid_recommendation":resp_recommendation/len(resp_list),
+                 "accepted_rest_length":resp_accepted_length/len(resp_list),
+                 "average_bpm_start_60": average_start_60/len(df[datetime.timedelta(hours=int(0), minutes=int(3), seconds=int(30))]),
+                 "average_bpm_start_30": average_start_30 / len(
+                     df[datetime.timedelta(hours=int(0), minutes=int(3), seconds=int(30))]),
+                 "average_bpm_start_00": average_start_0 / len(
+                     df[datetime.timedelta(hours=int(0), minutes=int(3), seconds=int(30))]),
+                 "average_bpm_end": average_end / len(
+                     df[datetime.timedelta(hours=int(0), minutes=int(3), seconds=int(30))]),
+
+                 "bpm_change_60": average_bpm_60/len(df[datetime.timedelta(hours=int(0), minutes=int(3), seconds=int(30))]),
+                 "bpm_change_30": average_bpm_30/len(df[datetime.timedelta(hours=int(0), minutes=int(3), seconds=int(30))]),
+                 "bpm_change_0": average_bpm_0/len(df[datetime.timedelta(hours=int(0), minutes=int(3), seconds=int(30))]),
+                 "caffeine_intake": caffeine_level/len(resp_list)
+                 }
+
+    return temp_dict
 
 def hr_trends(resp_list, title):
     hr_ids = []
@@ -208,13 +290,15 @@ def hr_trends(resp_list, title):
     df = pd.DataFrame(dict([(k,pd.Series(v)) for k,v in complete_hr_dict.items() ]))
 
     df = df.mask(df.sub(df.mean()).div(df.std()).abs().gt(3))
-    print(df)
+    # print(df)
 
-    df.mean().plot(label='mean')
-    plt.title(title)
-    plt.xlabel('Time', fontsize=15)
-    plt.ylabel('HR', fontsize=15)
-    plt.show()
+    # df.mean().plot(label='mean')
+    # plt.title(title)
+    # plt.xlabel('Time', fontsize=15)
+    # plt.ylabel('HR', fontsize=15)
+    # plt.show()
+
+    return complete_hr_dict
 
 def better_analysis(data_lists):
     complete_dict = {
@@ -237,65 +321,172 @@ def better_analysis(data_lists):
         'meal' : [], #4
         'working' : [], #5
         'other' : [], #6
+        'am':[],
+        'pm':[],
+        'tuesday':[],
+        'wednesday':[],
+        'tuesdayam':[],
+        'tuesdaypm':[],
+        'wednesdayam':[],
+        'wednesdaypm':[],
+        'caffeine_0': [],
+        'caffeine_1': [],
+        'caffeine_2': [],
+        'caffeine_3': [],
+        'caffeine_4': [],
+        'rating_1': [],
+        'rating_2': [],
+        'rating_3': [],
+        'rating_4': [],
+        'rating_5': [],
+        'recommend_very_unlikely': [],
+        'recommend_unlikely': [],
+        'recommend_neutral': [],
+        'recommend_likely': [],
+        'recommend_very_likely': [],
+
     }
 
     complete_df = []
+    day_ids = {'\ufeffTuesday AM': [], 'Tuesday PM':[], 'Wed AM': [], 'Wed PM': []}
+
+
+
+    with open("LucidData/am&pm/am&pm.csv", 'r') as input:
+        input_reader = csv.DictReader(input, delimiter=',')
+        for row in input_reader:
+            for entry in row:
+                if row[entry] != "":
+                    day_ids[entry].append(row[entry])
 
     for dir in data_lists:
-        for resp in data_lists[dir][0]:
-            # print(resp)
-            complete_dict['complete'].append(resp)
-            if dir == "LUCID_Room_1_V1" or dir == "LUCID_Room_1_V2":
-                complete_dict['empath'].append(resp)
-            else:
-                complete_dict['brody'].append(resp)
+        if dir != 'am&pm':
+            for resp in data_lists[dir][0]:
+                # print(resp)
+                complete_dict['complete'].append(resp)
+                if dir == "LUCID_Room_1_V1" or dir == "LUCID_Room_1_V2":
+                    complete_dict['empath'].append(resp)
+                else:
+                    complete_dict['brody'].append(resp)
 
-            if dir == "LUCID_Room_1_V1" or dir == "LUCID_Room_2_V1":
-                complete_dict['v1'].append(resp)
-            else:
-                complete_dict['v2'].append(resp)
+                if dir == "LUCID_Room_1_V1" or dir == "LUCID_Room_2_V1":
+                    complete_dict['v1'].append(resp)
+                else:
+                    complete_dict['v2'].append(resp)
 
-            if resp['Subject ID'] == 'D6' or resp['Subject ID'] == 'D7' or resp['Subject ID'] == 'D8':
-                complete_dict['no_audio'].append(resp)
+                if resp['Subject ID'] == 'D6' or resp['Subject ID'] == 'D7' or resp['Subject ID'] == 'D8':
+                    complete_dict['no_audio'].append(resp)
 
-            if resp['With what gender do you identify?'] == "Male" or resp['With what gender do you identify?'] == '2':
-                complete_dict['male'].append(resp)
-            else:
-                complete_dict['female'].append(resp)
+                if resp['With what gender do you identify?'] == "Male" or resp['With what gender do you identify?'] == '2':
+                    complete_dict['male'].append(resp)
+                else:
+                    complete_dict['female'].append(resp)
 
-            if resp["Age"] == "18-24" or resp["Age"] == '2':
-                complete_dict['age1824'].append(resp)
-            elif resp["Age"] == "25-34" or resp["Age"] == '3':
-                complete_dict['age2534'].append(resp)
-            elif resp["Age"] == "35-44" or resp["Age"] == '4':
-                complete_dict['age3544'].append(resp)
-            elif resp["Age"] == "45-54" or resp["Age"] == '5':
-                complete_dict['age4554'].append(resp)
-            elif resp["Age"] == "55-64" or resp["Age"] == '6':
-                complete_dict['age5564'].append(resp)
+                if resp['How many servings of caffeine have you had today?'] == '4 or more':
+                    complete_dict['caffeine_4'].append(resp)
+                elif resp['How many servings of caffeine have you had today?'] == '3':
+                    complete_dict['caffeine_3'].append(resp)
+                elif resp['How many servings of caffeine have you had today?'] == '2':
+                    complete_dict['caffeine_2'].append(resp)
+                elif resp['How many servings of caffeine have you had today?'] == '1':
+                    complete_dict['caffeine_1'].append(resp)
+                elif resp['How many servings of caffeine have you had today?'] == '0':
+                    complete_dict['caffeine_0'].append(resp)
 
-            if resp['Where you are currently coming\xa0from?'] == 'From a meeting' or resp['Where you are currently coming\xa0from?'] == '1':
-                complete_dict['meeting'].append(resp)
-            elif resp['Where you are currently coming\xa0from?'] == 'From home' or resp["Where you are currently coming\xa0from?"] == '2':
-                complete_dict['home'].append(resp)
-            elif resp['Where you are currently coming\xa0from?'] == 'From a phone call' or resp["Where you are currently coming\xa0from?"] == '3':
-                complete_dict['call'].append(resp)
-            elif resp['Where you are currently coming\xa0from?'] == 'From a meal (Break/Lunch/Snack)' or resp["Where you are currently coming\xa0from?"] == '4':
-                complete_dict['meal'].append(resp)
-            elif resp['Where you are currently coming\xa0from?'] == 'Working on my own' or resp["Where you are currently coming\xa0from?"] == '5':
-                complete_dict['working'].append(resp)
-            elif resp['Where you are currently coming\xa0from?'] == 'Other (please specify)' or resp["Where you are currently coming\xa0from?"] == '0':
-                complete_dict['other'].append(resp)
+                if resp["Age"] == "18-24" or resp["Age"] == '2':
+                    complete_dict['age1824'].append(resp)
+                elif resp["Age"] == "25-34" or resp["Age"] == '3':
+                    complete_dict['age2534'].append(resp)
+                elif resp["Age"] == "35-44" or resp["Age"] == '4':
+                    complete_dict['age3544'].append(resp)
+                elif resp["Age"] == "45-54" or resp["Age"] == '5':
+                    complete_dict['age4554'].append(resp)
+                elif resp["Age"] == "55-64" or resp["Age"] == '6':
+                    complete_dict['age5564'].append(resp)
+
+                if resp['Where you are currently coming\xa0from?'] == 'From a meeting' or resp['Where you are currently coming\xa0from?'] == '1':
+                    complete_dict['meeting'].append(resp)
+                elif resp['Where you are currently coming\xa0from?'] == 'From home' or resp["Where you are currently coming\xa0from?"] == '2':
+                    complete_dict['home'].append(resp)
+                elif resp['Where you are currently coming\xa0from?'] == 'From a phone call' or resp["Where you are currently coming\xa0from?"] == '3':
+                    complete_dict['call'].append(resp)
+                elif resp['Where you are currently coming\xa0from?'] == 'From a meal (Break/Lunch/Snack)' or resp["Where you are currently coming\xa0from?"] == '4':
+                    complete_dict['meal'].append(resp)
+                elif resp['Where you are currently coming\xa0from?'] == 'Working on my own' or resp["Where you are currently coming\xa0from?"] == '5':
+                    complete_dict['working'].append(resp)
+                elif resp['Where you are currently coming\xa0from?'] == 'Other (please specify)' or resp["Where you are currently coming\xa0from?"] == '0':
+                    complete_dict['other'].append(resp)
+
+                if resp['Subject ID'] in day_ids['\ufeffTuesday AM']:
+                    complete_dict['tuesdayam'].append(resp)
+                    complete_dict['tuesday'].append(resp)
+                    complete_dict['am'].append(resp)
+                elif resp['Subject ID'] in day_ids['Tuesday PM']:
+                    complete_dict['tuesdaypm'].append(resp)
+                    complete_dict['tuesday'].append(resp)
+                    complete_dict['pm'].append(resp)
+                elif resp['Subject ID'] in day_ids['Wed AM']:
+                    complete_dict['wednesdayam'].append(resp)
+                    complete_dict['wednesday'].append(resp)
+                    complete_dict['am'].append(resp)
+                elif resp['Subject ID'] in day_ids['Wed PM']:
+                    complete_dict['wednesdaypm'].append(resp)
+                    complete_dict['wednesday'].append(resp)
+                    complete_dict['pm'].append(resp)
+
+                if (resp['How likely are you to recommend the LUCID experience to a co-worker?'] == 'Very likely' or
+                        resp['How likely are you to recommend the LUCID experience to a co-worker?'] == "1"):
+                    complete_dict['recommend_very_likely'].append(resp)
+                elif (resp['How likely are you to recommend the LUCID experience to a co-worker?'] == 'Likely' or
+                      resp['How likely are you to recommend the LUCID experience to a co-worker?'] == "2"):
+                    complete_dict['recommend_likely'].append(resp)
+                elif (resp[
+                          'How likely are you to recommend the LUCID experience to a co-worker?'] == 'Neither likely nor unlikely' or
+                      resp['How likely are you to recommend the LUCID experience to a co-worker?'] == "3"):
+                    complete_dict['recommend_neutral'].append(resp)
+                elif (resp['How likely are you to recommend the LUCID experience to a co-worker?'] == 'Unlikely' or
+                      resp['How likely are you to recommend the LUCID experience to a co-worker?'] == "4"):
+                    complete_dict['recommend_unlikely'].append(resp)
+                elif (resp['How likely are you to recommend the LUCID experience to a co-worker?'] == 'Very unlikely' or
+                      resp['How likely are you to recommend the LUCID experience to a co-worker?'] == "5"):
+                    complete_dict['recommend_very_unlikely'].append(resp)
+
+
+                if int(resp['How would you rate your LUCID experience?']) == 5:
+                    complete_dict['rating_5'].append(resp)
+                elif int(resp['How would you rate your LUCID experience?']) == 4:
+                    complete_dict['rating_4'].append(resp)
+                elif int(resp['How would you rate your LUCID experience?']) == 3:
+                    complete_dict['rating_3'].append(resp)
+                elif int(resp['How would you rate your LUCID experience?']) == 2:
+                    complete_dict['rating_2'].append(resp)
+                elif int(resp['How would you rate your LUCID experience?']) == 1:
+                    complete_dict['rating_1'].append(resp)
+    complete_dict_by_sort = {}
 
     for i in complete_dict:
         print(i + " : N=" + str(len(complete_dict[i])))
-        correlation(complete_dict[i])
-        better_acceptance(complete_dict[i])
-        better_sentiment(complete_dict[i])
-        complete_df.append(hr_trends(complete_dict[i], i))
+        if len(complete_dict[i]) > 0:
+            complete_dict_by_sort[i] = {}
+
+            complete_dict_by_sort[i].update(correlation(complete_dict[i], hr_trends(complete_dict[i], i)))
+            complete_dict_by_sort[i].update(better_acceptance(complete_dict[i]))
+            complete_dict_by_sort[i].update(better_sentiment(complete_dict[i]))
+            complete_dict_by_sort[i].update({'sort_rule': i})
+            complete_dict_by_sort[i].update({"N": len(complete_dict[i])})
+
+    with open('output.csv', 'w', newline='') as csvfile:
+        fieldnames = []
+        for i in complete_dict_by_sort['complete']:
+            fieldnames.append(i)
+        writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+
+        writer.writeheader()
+        for i in complete_dict_by_sort:
+            writer.writerow(complete_dict_by_sort[i])
 
 
 if __name__ == '__main__':
-    nltk.download('vader_lexicon')
+    # nltk.download('vader_lexicon')
     data_lists = compile_data()
     better_analysis(data_lists)
